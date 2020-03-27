@@ -1,56 +1,74 @@
 ﻿using UnityEngine;
+using PathCreation;
+using Assets.Scripts;
 
-namespace PathCreation
+// Moves along a path at constant speed.
+// Depending on the end of path instruction, will either loop, reverse, or stop at the end of the path.
+public class PathFollower : MonoBehaviour
 {
-    // Moves along a path at constant speed.
-    // Depending on the end of path instruction, will either loop, reverse, or stop at the end of the path.
-    public class PathFollower : MonoBehaviour
+    public PathCreator pathCreator;
+    private NumberNode attachedNode;
+    public EndOfPathInstruction endOfPathInstruction;
+    public bool following;
+    public bool forwards;
+    public float distanceTravelled;
+    private static int nextCheckpoint = 1;
+    private static int amountOfCheckpoints = 3;
+
+    void Awake()
     {
-        public PathCreator pathCreator;
-        public EndOfPathInstruction endOfPathInstruction;
-        public float speed = 5;
-        private bool goingForwards = true;
-        public float distanceTravelled;
+        pathCreator = GameObject.FindGameObjectWithTag("Gutter").GetComponent<PathCreator>();
+        attachedNode = GetComponent<NumberNode>();
+    }
 
-        void Start() {
-            pathCreator = GameObject.FindGameObjectWithTag("PathCreator").GetComponent<PathCreator>();
-            if (pathCreator != null)
-            {
-                // Subscribed to the pathUpdated event so that we're notified if the path changes during the game
-                pathCreator.pathUpdated += OnPathChanged;
-            }
-        }
-
-        public void Follow()
+    public void Follow(MoveType moveType)
+    {
+        float speed = NodeManager.GetSpeed();
+        switch (moveType)
         {
-            if (pathCreator != null)
-            {
-                if (goingForwards)
-                {
-                    distanceTravelled += speed * Time.deltaTime;
-                }
-                else
-                {
-                    distanceTravelled -= speed * Time.deltaTime;
-                }
-                transform.position = pathCreator.path.GetPointAtDistance(distanceTravelled, endOfPathInstruction);
-            }
+            case MoveType.FORWARD:
+                distanceTravelled += speed * Time.deltaTime;
+                break;
+            case MoveType.BACKWARD:
+                distanceTravelled -= speed * Time.deltaTime;
+                break;
         }
+        transform.position = pathCreator.path.GetPointAtDistance(distanceTravelled, endOfPathInstruction);
+        Check();
+    }
 
-        public void GoForwards()
+    public void SetDistanceTravelled(float distanceTravelled)
+    {
+        this.distanceTravelled = distanceTravelled;
+    }
+
+    public void AddDistanceTravelled(float add)
+    {
+        distanceTravelled += add;
+    }
+
+
+    private void Check()
+    {
+        CheckCheckpoint();
+        CheckEnd();
+
+    }
+
+    private void CheckEnd()
+    {
+        if (distanceTravelled >= pathCreator.path.length)
         {
-            goingForwards = true;
+            attachedNode.Kill();
         }
+    }
 
-        public void GoBackwards()
+    private void CheckCheckpoint()
+    {
+        if (distanceTravelled >= pathCreator.path.length / (amountOfCheckpoints + 1) * nextCheckpoint && nextCheckpoint!= (amountOfCheckpoints + 1))
         {
-            goingForwards = false;
-        }
-
-        // If the path changes during the game, update the distance travelled so that the follower's position on the new path
-        // is as close as possible to its position on the old path
-        void OnPathChanged() {
-            distanceTravelled = pathCreator.path.GetClosestDistanceAlongPath(transform.position);
+            GameStateManager.Pause();
+            print(nextCheckpoint++);
         }
     }
 }

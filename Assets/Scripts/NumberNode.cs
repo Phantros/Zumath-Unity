@@ -1,119 +1,83 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using PathCreation;
-using System;
-using Assets.Scripts;
 
+
+[RequireComponent(typeof(PathFollower))]
+[RequireComponent(typeof(NodeController))]
+[RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(CircleCollider2D))]
 public class NumberNode : MonoBehaviour
 {
-    private int value;
-    public bool moving;
-    public float radius = 1f;
     public PathFollower pathFollower;
-    public CircleCollider2D collider;
-    private NumberNode nodeTouchedInFront, nodeTouchedBehind;
+    private CircleCollider2D circleCollider;
+    public NodeController nodeController;
+    private TextMeshPro textMeshPro;
+    public NodeState state;
 
-    public NumberNode(int value)
+    public int value;
+    public const float RADIUS = 1f;
+    public bool alive;
+
+    void Awake()
     {
-        this.value = value;
+        Init();
     }
 
-    // Start is called before the first frame update
-    void Start()
+    public void Init()
     {
-        moving = true;
-        // Initialize components
+        alive = true;
         pathFollower = GetComponent<PathFollower>();
-        collider = GetComponentInChildren<CircleCollider2D>();
-        GetComponentInChildren<RectTransform>().transform.localScale = new Vector3(radius, radius, 1);
-
-        // Set scaling for text renderer
-        Transform textRendererTransform = GetComponentInChildren<MeshRenderer>().GetComponent<Transform>();
-        textRendererTransform.transform.localPosition = new Vector3(-0.36f * radius, 0.314f * radius, 1);
-        textRendererTransform.transform.localScale = new Vector3(radius / 10f, radius / 10f, 1);
-
-        // Format this numbernodes value into a string to display
-        GetComponentInChildren<TextMesh>().text = FormatValue();
+        circleCollider = GetComponent<CircleCollider2D>();
+        nodeController = GetComponent<NodeController>();
+        textMeshPro = GetComponentInChildren<TextMeshPro>();
     }
 
-    // Moves this node forwards.
-    public void Move()
+    public void OnTriggerEnter2D(Collider2D collision)
     {
-        if (moving)
+        NumberNode otherNode = collision.GetComponent<NumberNode>();
+        if (otherNode != null)
         {
-            pathFollower.GoForwards();
-            pathFollower.Follow();
-            return;
+            if (! NodeManager.Contains(otherNode))
+            {
+                NodeManager.InsertAtPlaceOf(NodeManager.GetNodes().Find(this), otherNode);
+            }
         }
     }
 
-    // Tries to go backward every time it's called until it's no longer touching otherNode.
-    public void ReverseOutOfNode(NumberNode otherNode)
+    public void Kill()
     {
-        if (!IsTouching(otherNode))
-        {
-            moving = false;
-        }
-        if (moving)
-        {
-            nodeTouchedInFront = otherNode;
-            pathFollower.GoBackwards();
-            pathFollower.Follow();
-        }
+        alive = false;
     }
 
-    // Tries to go forward every time it's called until it's no longer touching otherNode.
-    public void GoForwardsOutOfNode(NumberNode otherNode)
-    {
-        if (!IsTouching(otherNode))
-        {
-            moving = false;
-        }
-        if (moving)
-        {
-            nodeTouchedBehind = otherNode;
-            pathFollower.GoForwards();
-            pathFollower.Follow();
-        }
-    }
-
-    // Returns true if otherNode is touching this node;
     public bool IsTouching(NumberNode otherNode)
     {
-        if (collider.IsTouching(otherNode.collider))
+        if (otherNode != null)
         {
-            return true;
+            if (circleCollider.IsTouching(otherNode.circleCollider))
+            {
+                return true;
+            }
         }
         return false;
     }
 
-    // Returns true if otherNode was touched by this node.
-    public bool WasTouching(NumberNode otherNode)
+    public void SetValue(int value)
     {
-        if (nodeTouchedInFront == otherNode)
+        this.value = value;
+        if (textMeshPro != null)
         {
-            return true;
+            textMeshPro.SetText(value.ToString());
         }
-        return false;
+    }
+    public void SetState(NodeState state)
+    {
+        this.state = state;
     }
 
-    // Start moving the ball again after collision detection.
-    public void StartMoving()
+    public override string ToString()
     {
-        moving = true;
-        // Clear touched objects out of memory
-        nodeTouchedInFront = null;
-        nodeTouchedBehind = null;
-    }
-
-    // Formats the integer value into a displayable number string
-    private string FormatValue()
-    {
-        if (value < 10)
-        {
-            return " " + value;
-        }
         return value.ToString();
     }
 }
